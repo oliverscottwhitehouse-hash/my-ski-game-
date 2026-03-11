@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Procedural Ski Resort</title>
+
+<style>
+body{margin:0;overflow:hidden;font-family:Arial}
+
+#ui{
+position:absolute;
+top:10px;
+left:10px;
+background:white;
+padding:10px;
+border-radius:10px;
+}
+
+#controls{
+position:absolute;
+bottom:10px;
+left:10px;
+background:white;
+padding:10px;
+border-radius:10px;
+}
+
+button{margin:5px}
+</style>
+
+</head>
+
+<body>
+
+<div id="ui">
+Money: $<span id="money">0</span><br>
+Trail: <span id="trail"></span>
+
+<div>
+<b>Injuries</b>
+<div id="injuries"></div>
+</div>
+
+</div>
+
+<div id="controls">
+<button onclick="generateMountain()">Generate New Mountain</button>
+<button onmousedown="slow=true" onmouseup="slow=false">Slow Down</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158/build/three.min.js"></script>
+
+<script>
+
+let scene=new THREE.Scene()
+scene.background=new THREE.Color(0x87ceeb)
+
+let camera=new THREE.PerspectiveCamera(
+75,
+window.innerWidth/window.innerHeight,
+0.1,
+5000
+)
+
+let renderer=new THREE.WebGLRenderer({antialias:true})
+renderer.setSize(window.innerWidth,window.innerHeight)
+document.body.appendChild(renderer.domElement)
+
+/* lighting */
+
+scene.add(new THREE.AmbientLight(0xffffff,.6))
+
+let sun=new THREE.DirectionalLight(0xffffff,1)
+sun.position.set(200,400,200)
+scene.add(sun)
+
+/* distant mountains */
+
+for(let i=0;i<30;i++){
+
+let m=new THREE.Mesh(
+
+new THREE.ConeGeometry(
+100+Math.random()*100,
+300,
+6
+),
+
+new THREE.MeshPhongMaterial({color:0x888888})
+
+)
+
+m.position.set(
+(Math.random()-.5)*3000,
+150,
+-1500-Math.random()*1000
+)
+
+scene.add(m)
+
+}
+
+/* player */
+
+let skier=new THREE.Group()
+
+let body=new THREE.Mesh(
+new THREE.BoxGeometry(1,2,.6),
+new THREE.MeshPhongMaterial({color:0xff0000})
+)
+
+body.position.y=2
+
+let head=new THREE.Mesh(
+new THREE.SphereGeometry(.5),
+new THREE.MeshPhongMaterial({color:0xffe0bd})
+)
+
+head.position.y=3.5
+
+let ski1=new THREE.Mesh(
+new THREE.BoxGeometry(.2,.05,3),
+new THREE.MeshPhongMaterial({color:0x000000})
+)
+
+ski1.position.set(-.3,0,0)
+
+let ski2=ski1.clone()
+ski2.position.x=.3
+
+skier.add(body)
+skier.add(head)
+skier.add(ski1)
+skier.add(ski2)
+
+scene.add(skier)
+
+/* terrain */
+
+let terrain
+let obstacles=[]
+let rails=[]
+let npcs=[]
+
+function generateMountain(){
+
+if(terrain)scene.remove(terrain)
+
+obstacles.forEach(o=>scene.remove(o))
+rails.forEach(r=>scene.remove(r))
+npcs.forEach(n=>scene.remove(n))
+
+obstacles=[]
+rails=[]
+npcs=[]
+
+terrain=new THREE.Mesh(
+
+new THREE.PlaneGeometry(400,4000,200,200),
+
+new THREE.MeshPhongMaterial({color:0xffffff})
+
+)
+
+terrain.rotation.x=-Math.PI/2
+
+/* mountain slopes */
+
+let verts=terrain.geometry.attributes.position
+
+for(let i=0;i<verts.count;i++){
+
+let x=verts.getX(i)
+let z=verts.getZ(i)
+
+let height=
+Math.sin(z*.02)*5+
+Math.cos(x*.05)*2+
+Math.random()*2
+
+verts.setY(i,height)
+
+}
+
+verts.needsUpdate=true
+
+scene.add(terrain)
+
+/* trees lining trail */
+
+for(let i=0;i<500;i++){
+
+let x=Math.random()<.5?-35:35
+
+let trunk=new THREE.Mesh(
+new THREE.CylinderGeometry(.3,.3,3),
+new THREE.MeshPhongMaterial({color:0x8b4513})
+)
+
+let leaves=new THREE.Mesh(
+new THREE.ConeGeometry(2,4),
+new THREE.MeshPhongMaterial({color:0x0a5c2a})
+)
+
+trunk.position.set(x,1.5,-i*8)
+leaves.position.set(x,4,-i*8)
+
+scene.add(trunk)
+scene.add(leaves)
+
+obstacles.push(trunk)
+
+}
+
+/* rocks */
+
+for(let i=0;i<150;i++){
+
+let rock=new THREE.Mesh(
+new THREE.DodecahedronGeometry(1.5),
+new THREE.MeshPhongMaterial({color:0x777777})
+)
+
+rock.position.set(
+(Math.random()-.5)*40,
+1,
+-i*20
+)
+
+scene.add(rock)
+obstacles.push(rock)
+
+}
+
+/* rails */
+
+for(let i=0;i<40;i++){
+
+let rail=new THREE.Mesh(
+new THREE.BoxGeometry(8,.3,.3),
+new THREE.MeshPhongMaterial({color:0x555555})
+)
+
+rail.position.set(
+(Math.random()-.5)*30,
+1,
+-i*80
+)
+
+scene.add(rail)
+rails.push(rail)
+
+}
+
+/* NPC skiers */
+
+for(let i=0;i<30;i++){
+
+let npc=new THREE.Mesh(
+new THREE.BoxGeometry(1,2,1),
+new THREE.MeshPhongMaterial({color:0x0000ff})
+)
+
+npc.position.set(
+(Math.random()-.5)*40,
+1,
+-i*60
+)
+
+scene.add(npc)
+npcs.push(npc)
+
+}
+
+skier.position.set(0,0,0)
+
+}
+
+generateMountain()
+
+/* injuries */
+
+let injuries=[]
+
+let injuryTypes=[
+"sprained legs",
+"sprained arms",
+"broken ribs",
+"concussion",
+"coma",
+"brain bleed",
+"broken arms",
+"broken legs"
+]
+
+function giveInjury(){
+
+let i=injuryTypes[Math.floor(Math.random()*injuryTypes.length)]
+
+if(!injuries.includes(i))injuries.push(i)
+
+document.getElementById("injuries").innerHTML=injuries.join("<br>")
+
+}
+
+/* snow */
+
+let snow=[]
+
+for(let i=0;i<600;i++){
+
+let s=new THREE.Mesh(
+new THREE.SphereGeometry(.05),
+new THREE.MeshBasicMaterial({color:0xffffff})
+)
+
+s.position.set(
+(Math.random()-.5)*500,
+Math.random()*200,
+(Math.random()-.5)*500
+)
+
+scene.add(s)
+snow.push(s)
+
+}
+
+/* controls */
+
+let keys={}
+let slow=false
+let speed=.35
+
+document.addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true)
+document.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false)
+
+/* camera */
+
+camera.position.set(0,8,14)
+
+/* game loop */
+
+function animate(){
+
+requestAnimationFrame(animate)
+
+let move=speed
+
+if(slow)move*=.4
+if(keys["r"])move*=1.8
+
+if(keys["a"])skier.position.x-=.25
+if(keys["d"])skier.position.x+=.25
+
+skier.position.z-=move
+
+camera.position.x=skier.position.x
+camera.position.z=skier.position.z+14
+camera.lookAt(skier.position)
+
+/* npc movement */
+
+npcs.forEach(n=>{
+n.position.z+=.3
+})
+
+/* collisions */
+
+obstacles.forEach(o=>{
+if(skier.position.distanceTo(o.position)<2){
+giveInjury()
+}
+})
+
+/* hallucination camera */
+
+if(injuries.includes("concussion")||injuries.includes("brain bleed")){
+camera.position.x+=Math.sin(Date.now()*0.01)*.3
+}
+
+/* snow */
+
+snow.forEach(s=>{
+s.position.y-=.7
+if(s.position.y<0)s.position.y=200
+})
+
+renderer.render(scene,camera)
+
+}
+
+animate()
+
+</script>
+</body>
+</html>
